@@ -9,6 +9,7 @@ let validateAuthProfile = require('../lib/middleware/validate-auth-profile');
 let validateLocalCredentials = require('../lib/middleware/validate-local-credentials');
 let authenticator = require('../lib/auth/authenticator');
 let AuthenticationModel = require('../models/Authentication');
+let LoginHistoryModel = require('../models/LoginHistory');
 let noDupe = require('../lib/auth/no-dupe');
 let createUser = require('../lib/auth/create-user');
 let createAuth = require('../lib/auth/create-auth');
@@ -137,7 +138,10 @@ router.post('/login', validateLocalCredentials, function(req, res, next) {
 	})
 	.fetch({withRelated: ['user']})
 	.then(function(auth) {
+		var ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+		console.log(ip)
 		if(!auth) {
+			updateLoginHistory(-1, ip);
 			res.error.add('auth.UNKNOWN_USER', 'email').send(errorRedirect);
 		}
 		else {
@@ -171,6 +175,15 @@ router.post('/login', validateLocalCredentials, function(req, res, next) {
 		}
 	});
 });
+
+function updateLoginHistory(status, ip, authId){
+	LoginHistoryModel.forge({
+		loginStatus: status,
+		ipAddress: ip,
+		authenticationId: authId || null
+
+	}).save().then(function(data){console.log(data)})
+}
 
 router.get('/finish', function(req, res, next) {
 
